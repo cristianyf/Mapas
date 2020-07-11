@@ -11,28 +11,24 @@ import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
-import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
-import com.google.android.gms.maps.model.*
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.Marker
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarkerClickListener,
     GoogleMap.OnMarkerDragListener {
 
-    private lateinit var mMap: GoogleMap
     private val permisoFineLocation = android.Manifest.permission.ACCESS_FINE_LOCATION
     private val permisoCoarseLocation = android.Manifest.permission.ACCESS_COARSE_LOCATION
     private val CODIGO_SOLICITUD_PERMISO = 100
     var fusedLocationClient: FusedLocationProviderClient? = null
     var locationRequest: LocationRequest? = null
     var callback: LocationCallback? = null
-
-    private var listaMarcadores: ArrayList<Marker>? = null
-
-    private var marcador1: Marker? = null
-    private var marcador2: Marker? = null
-
+    private var mapa: Mapa? = null
+    private var markerListener = this
+    private var dragListener = this
 
     @SuppressLint("MissingPermission")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,20 +46,16 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
             override fun onLocationResult(locationResult: LocationResult?) {
                 super.onLocationResult(locationResult)
 
-                if (mMap != null) {
-                    //Boton de ubicacion
-                    mMap.isMyLocationEnabled = true
-                    mMap.uiSettings.isMyLocationButtonEnabled = true
+                if (mapa != null) {
+
+                    mapa?.configurarMiUbicacion()
 
                     for (ubicacion in locationResult?.locations!!) {
-                        Toast.makeText(
-                            applicationContext,
-                            ubicacion.latitude.toString() + " , " + ubicacion.longitude.toString(),
-                            Toast.LENGTH_SHORT
-                        ).show()
-                        val miPosicion = LatLng(ubicacion.latitude, ubicacion.longitude)
-                        mMap.addMarker(MarkerOptions().position(miPosicion).title("Aqui estoy"))
-                        mMap.moveCamera(CameraUpdateFactory.newLatLng(miPosicion))
+                        /*Toast.makeText(applicationContext,ubicacion.latitude.toString() + " , " + ubicacion.longitude.toString(),
+                            Toast.LENGTH_SHORT).show()*/
+                        mapa?.miPosicion = LatLng(ubicacion.latitude, ubicacion.longitude)
+                        mapa?.anadirMarcadorMiPosicion()
+
                     }
                 }
 
@@ -79,107 +71,22 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
     }
 
     override fun onMapReady(googleMap: GoogleMap) {
-        mMap = googleMap
 
-        cambiarEstiloMapa()
+        mapa = Mapa(googleMap, applicationContext, markerListener, dragListener)
 
-        marcadoresEstaticos()
+        mapa?.cambiarEstiloMapa()
 
-        crearListener()
+        mapa?.marcadoresEstaticos()
 
-        prepararMarcadores()
+        mapa?.crearListener()
 
-        dibujarLineas()
+        mapa?.prepararMarcadores()
 
-        dibujarPoligono()
+        mapa?.dibujarLineas()
 
-        dibujarCirculo()
+        mapa?.dibujarPoligono()
 
-    }
-
-    private fun dibujarCirculo(){
-        val coordenadas = CircleOptions()
-            .center(LatLng(4.4280905852962285, -75.1748514175415))
-            .radius(70.0)
-        mMap.addCircle(coordenadas)
-    }
-
-    private fun dibujarPoligono() {
-        val coordenadas = PolygonOptions()
-            .add(LatLng(4.421335518525363, -75.18070299178362))
-            .add(LatLng(4.427511285915592, -75.18064599484204))
-            .add(LatLng(4.4280905852962285, -75.1748514175415))
-            .add(LatLng(4.423592228456237, -75.17236769199371))
-
-        mMap.addPolygon(coordenadas)
-    }
-
-    private fun dibujarLineas() {
-        val coordenadas = PolylineOptions()
-            .add(LatLng(4.421335518525363, -75.18070299178362))
-            .add(LatLng(4.427511285915592, -75.18064599484204))
-            .add(LatLng(4.4280905852962285, -75.1748514175415))
-            .add(LatLng(4.423592228456237, -75.17236769199371))
-
-        mMap.addPolyline(coordenadas)
-    }
-
-    private fun cambiarEstiloMapa() {
-        mMap.mapType = GoogleMap.MAP_TYPE_HYBRID
-        //Personalizar mapa https://mapstyle.withgoogle.com/
-        /*val exitoCambioMapa= mMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, R.raw.mapa_json))
-        if(!exitoCambioMapa){
-        }*/
-    }
-
-    private fun crearListener() {
-        mMap.setOnMarkerClickListener(this)
-        mMap.setOnMarkerDragListener(this)
-    }
-
-    private fun marcadoresEstaticos() {
-        val punto1 = LatLng(4.422379, -75.181451)
-        val punto2 = LatLng(4.420357, -75.177556)
-
-        marcador1 = mMap.addMarker(
-            MarkerOptions()
-                .position(punto1)
-                .snippet("Descripcion del punto")
-                // .icon(BitmapDescriptorFactory.fromResource(R.drawable.avion))//Poner imagen en el icono
-                .alpha(1f)
-                .title("PUNTO 1")
-        )
-        marcador1?.tag = 0
-
-        marcador2 = mMap.addMarker(
-            MarkerOptions()
-                .position(punto2)
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))//Color icono
-                .alpha(0.6f)//transparencia en el color del icono
-                .title("PUNTO 2")
-        )
-        marcador2?.tag = 0
-    }
-
-    //Agregar marcadores en el mapa
-    private fun prepararMarcadores() {
-        listaMarcadores = ArrayList()
-
-        mMap.setOnMapLongClickListener { location: LatLng? ->
-
-            listaMarcadores?.add(
-                mMap.addMarker(
-                    MarkerOptions()
-                        .position(location!!)
-                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))//Color icono
-                        .snippet("Descripcion del punto")
-                        .alpha(0.6f)//transparencia en el color del icono
-                        .title("PUNTO 2")
-                )
-            )
-            //mueve el marcador
-            listaMarcadores?.last()!!.isDraggable = true
-        }
+        mapa?.dibujarCirculo()
     }
 
     override fun onMarkerDragEnd(marcador: Marker?) {
@@ -197,11 +104,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
             "Empezando a mover el marcador ",
             Toast.LENGTH_SHORT
         ).show()
-        val index = listaMarcadores?.indexOf(marcador!!)
-        Log.d(
-            "Marcador INICIAL ", listaMarcadores?.get(index!!)!!.position?.latitude.toString() +
-                    listaMarcadores?.get(index!!)!!.position?.longitude.toString()
-        )
+        Log.d("Marcador INICIAL ", marcador?.position?.latitude.toString())
     }
 
     override fun onMarkerDrag(marcador: Marker?) {
@@ -289,6 +192,43 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
     private fun detenerActualizacion() {
         fusedLocationClient?.removeLocationUpdates(callback)
     }
+
+
+    /*private fun decodePoly(encoded:String): List<GeoPoin>{
+        val poly = ArrayList<GeoPoint>()
+        var index = 0
+        val len = encoded.length
+        var lat = 0
+        var lng = 0
+
+        while (index < len){
+            var b: Int
+            var shift = 0
+            var result = 0
+            do {
+                b = encoded[index++].toInt() - 63
+                result = result or (b and 0x1f shl shift)
+                shift +=5
+            } while (b >= 0x20)
+            val dlat = if (result and 1 != 0) (result shr 1).inv() else result shr 1
+            lat += dlat
+
+            shift = 0
+            result = 0
+            do {
+                b = encoded[index++].toInt() - 63
+                result = result or (b and 0x1f shl shift)
+                shift += 5
+            } while (b >= 0x20)
+            val dlng = if (result and 1 != 0) (result shr 1).inv() else result shr 1
+            lng += dlng
+
+            val p = GeoPoint((lat.toDouble() / 1E5 * 1E6).toInt().toDouble(),
+                (lng.toDouble()/ 1E5 * 1E6).toInt().toDouble())
+            poly.add(p)
+        }
+        return poly
+    }*/
 
     override fun onStart() {
         super.onStart()
